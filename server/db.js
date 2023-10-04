@@ -143,6 +143,14 @@ const createLineItem = async(lineItem)=> {
   return response.rows[0];
 };
 
+const createFavoriteItem = async(favoriteItem)=> {
+  const SQL = `
+  INSERT INTO favorites (product_id, user_id, id) VALUES($1, $2, $3) RETURNING *
+`;
+ response = await client.query(SQL, [ favoriteItem.product_id, favoriteItem.user_id, uuidv4()]);
+  return response.rows[0];
+};
+
 const deleteLineItem = async(lineItem)=> {
   await ensureCart(lineItem);
   const SQL = `
@@ -182,6 +190,7 @@ const fetchOrders = async(userId)=> {
 
 const seed = async()=> {
   const SQL = `
+    DROP TABLE IF EXISTS favorites;
     DROP TABLE IF EXISTS line_items;
     DROP TABLE IF EXISTS products;
     DROP TABLE IF EXISTS orders;
@@ -216,6 +225,14 @@ const seed = async()=> {
       quantity INTEGER DEFAULT 1,
       CONSTRAINT product_and_order_key UNIQUE(product_id, order_id)
     );
+    
+    CREATE TABLE favorites(
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT now(),
+    product_id UUID REFERENCES products(id) NOT NULL,
+    user_id UUID REFERENCES users(id) NOT NULL,
+    CONSTRAINT product_and_user_key UNIQUE(product_id, user_id)
+    );
 
   `;
   await client.query(SQL);
@@ -223,13 +240,19 @@ const seed = async()=> {
   const [moe, lucy, ethyl] = await Promise.all([
     createUser({ username: 'moe', password: 'm_password', is_admin: false}),
     createUser({ username: 'lucy', password: 'l_password', is_admin: false}),
-    createUser({ username: 'ethyl', password: '1234', is_admin: true})
+    createUser({ username: 'ethyl', password: '1234', is_admin: true}),
+    
   ]);
   const [foo, bar, bazz] = await Promise.all([
     createProduct({ name: 'foo' }),
     createProduct({ name: 'bar' }),
     createProduct({ name: 'bazz' }),
     createProduct({ name: 'quq' }),
+  ]);
+  
+  const [favorites] = await Promise.all([
+    createProduct({ product_id: foo.id }),
+    
   ]);
   let orders = await fetchOrders(ethyl.id);
   let cart = orders.find(order => order.is_cart);
